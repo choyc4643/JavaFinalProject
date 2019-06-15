@@ -1,5 +1,6 @@
 package Reader;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -14,56 +15,110 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipFile;
 
+
+
+
 /**
  * This class about reading files in zipped directory.
  * @author Á¶¿µÂù
  *
  */
-public class ZipReader {
+public class ZipReader extends Thread {
 	
 	String input;	//-i
 	String output;	// -o
 	String output2; // -o2
 	boolean help;	//-h
-
+	private String[] argument;
+	private File[] resultList;
+	ArrayList<String> saveFile1 = new ArrayList<String>();
+	ArrayList<String> saveFile2 = new ArrayList<String>();
+	
+	
+	class Files <T>{
+		private T t;
+		
+		public void set(T t) {
+			this.t = t;
+		}
+		
+		public T get() {
+			return t;
+		}
+	}
+	
 	
 	/**
 	 * It create ZipReader instance and implement run method and based on args.
 	 * @param args
 	 */
-	public static void main(String[] args) {
-		ZipReader zipReader = new ZipReader();
-		zipReader.run(args);
+		public static void main(String[] args) throws Exception {
+			int numThreads = 5;
+			Thread[] t = new Thread[numThreads];
+			
+			for(int i=0;i<numThreads;i++) {
+				ZipReader zipReader = new ZipReader(); 
+				zipReader.setArg(args);
+				t[i] = new Thread(zipReader);
+				t[i].start();
+			}
+			
+		}
 		
-	}
+		public void setArg(String[] args) {
+			argument = args;
+		}
+	
 	
 	/**
 	 * This method for reading excel file based input options.
 	 * @param args
 	 */
-	private void run(String[] args) {
+	public void run() {
 		//String path = args[0];
 		
 		Options options = createOptions();
 
 
-		if(parseOptions(options, args)){
-			if (help){
-				printHelp(options);
-				return;
-			}
-		}
+		
 		
 		try {
-			// when there are not enough arguments from CLI, it throws the NotEnoughArgmentException which must be defined by you.
-			if(args.length<2)
+			if(argument.length<2)
 				throw new NotEnoughArgumentException();
+			
+			if(parseOptions(options, argument)){
+				if (help){
+					printHelp(options);
+					return;
+				}else {
+					//readFileInZip(dataPath);
+					
+					Files<String> myFile = new Files();
+					
+					myFile.set(input);
+					
+					getZipFileList(myFile.get());
+					
+					for(File f:resultList) {
+						if(f.getName().contains("zip")) {
+							saveFile1.add(f.getName());
+							saveFile2.add(f.getName());
+							readFileInZip(myFile.get() + f.getName());
+						}
+					}
+					
+					Utils.writeAFile(saveFile1, output);
+					Utils.writeAFile(saveFile2, output2);
+					
+				}
+			}
+			// when there are not enough arguments from CLI, it throws the NotEnoughArgmentException which must be defined by you.
+			
 		} catch (NotEnoughArgumentException e) {
 			System.out.println(e.getMessage());
 			System.exit(0);
 		}
 		
-		readFileInZip(input);
 		
 	}
 
@@ -73,10 +128,7 @@ public class ZipReader {
 	 */
 	public void readFileInZip(String path) {
 		ZipFile zipFile;
-		String resultPath = output;
-		String resultPath2 = output2;
-		ArrayList<String> temp = new ArrayList<String>();
-		int count =0;
+		int count=0;
 		try {
 			zipFile = new ZipFile(path);
 			Enumeration<? extends ZipArchiveEntry> entries = zipFile.getEntries();
@@ -89,15 +141,17 @@ public class ZipReader {
 		        ExcelReader myReader = new ExcelReader();
 		        
 		        for(String value:myReader.getData(stream)) {
-		        	System.out.println(value);
-		        	temp.add(value);
+	
+		        	if(count ==0)
+		        		saveFile1.add(value);
+		        	else if(count == 1)
+		        		saveFile2.add(value);
+
 		        }
-		        if(count == 0)
-		        	Utils.writeAFile(temp, resultPath);
-		        else if(count == 1)
-		        	Utils.writeAFile(temp, resultPath2);
-		        
 		        count ++;
+		        saveFile1.add("");
+		        saveFile2.add("");
+		        
 		    }
 		    
 		    
@@ -181,6 +235,12 @@ public class ZipReader {
 		String header = "HGU Course Analyzer";
 		String footer ="";
 		formatter.printHelp("HGUCourseCounter", header, options, footer, true);
+	}
+	public File[] getZipFileList(String path) {
+		File file = new File(path);
+		resultList = file.listFiles();
+		
+		return resultList;
 	}
 
 }

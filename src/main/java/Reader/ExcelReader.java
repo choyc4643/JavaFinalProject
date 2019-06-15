@@ -72,7 +72,6 @@ public class ExcelReader {
     		
     		//System.out.print(value + " ");
     	}
-    	
     	values.add(resultValue);
     	//System.out.println();
     }
